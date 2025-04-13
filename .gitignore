@@ -1,2 +1,6 @@
 .DS_STORE
 .idea
+data
+models
+experiments
+__pycache__

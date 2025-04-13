@@ -17,6 +17,18 @@ from run_features_extraction import load_model_from_config
 
 
 def main():
+    os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+    os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+    gpus = os.environ.get("CUDA_VISIBLE_DEVICES", "").split(",")
+    gpus = [int(g) for g in gpus if g.strip()]  # Parse GPU IDs
+    device_ids = list(range(len(gpus)))
+    torch.cuda.set_per_process_memory_fraction(0.85, device=0)
+
+
+    print(f"\n\n\n\n\n\n\n\n\n\n\n\nUsing GPUs: {gpus}, Device IDs: {device_ids}\n\n\n\n\n\n\n\n\n\n\n")
+
+
+
     parser = argparse.ArgumentParser()
     parser.add_argument('--config', default = 'configs/pnp/pnp-real.yaml')
     parser.add_argument('--ddim_eta', type=float, default=0.0, help='DDIM eta')
@@ -50,7 +62,15 @@ def main():
     model = load_model_from_config(model_config, f"{opt.ckpt}")
 
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+
     model = model.to(device)
+    if len(device_ids) > 1:
+        model = torch.nn.DataParallel(model, device_ids=device_ids)
+
+    if isinstance(model, torch.nn.DataParallel):
+        model = model.module
+
+
     sampler = DDIMSampler(model)
     sampler.make_schedule(ddim_num_steps=ddim_steps, ddim_eta=opt.ddim_eta, verbose=False) 
 

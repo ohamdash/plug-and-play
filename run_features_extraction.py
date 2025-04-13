@@ -51,6 +51,16 @@ def load_model_from_config(config, ckpt, verbose=False):
 
 
 def main():
+    os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+    os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+    gpus = os.environ.get("CUDA_VISIBLE_DEVICES", "").split(",")
+    gpus = [int(g) for g in gpus if g.strip()]  # Parse GPU IDs
+    device_ids = list(range(len(gpus)))
+    torch.cuda.set_per_process_memory_fraction(0.75, device=0)
+
+
+    print(f"\n\n\n\n\n\n\n\n\n\n\n\nUsing GPUs: {gpus}, Device IDs: {device_ids}\n\n\n\n\n\n\n\n\n\n\n")
+
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
@@ -137,8 +147,16 @@ def main():
 
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
     model = model.to(device)
+    if len(device_ids) > 1:
+        model = torch.nn.DataParallel(model, device_ids=device_ids)
+
+    if isinstance(model, torch.nn.DataParallel):
+        model = model.module
+
     unet_model = model.model.diffusion_model
+    #unet_model = model.module.model.diffusion_model if isinstance(model, torch.nn.DataParallel) else model.model.diffusion_model
     sampler = DDIMSampler(model)
+    #sampler = DDIMSampler(model.module if isinstance(model, torch.nn.DataParallel) else model)
     save_feature_timesteps = exp_config.config.ddim_steps if exp_config.config.init_img == '' else exp_config.config.save_feature_timesteps
 
     outpath = f"{exp_path_root}/{exp_config.config.experiment_name}"
